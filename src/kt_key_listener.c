@@ -6,6 +6,7 @@
 #include <string.h>
 #include <linux/input.h>
 #include <fcntl.h>
+#include <glib.h>
 #include "kt_key_listener.h"
 
 enum 
@@ -24,15 +25,17 @@ enum
 
 static guint signals[N_SIGNALS];
 
-static guint key_lsr_spec_key = 'A' | ('S' << 1) | ('D' << 2) | ('F' << 3);
+/* a 30, s 31, d 32, f 33 */
+static guint key_lsr_spec_key = 30 | (31 << 1) | (32 << 2) | (33 << 3);
 
 struct _KtKeyListener
 {
-    GObject      base_instance;
-    guint        event_id;
-    gboolean     stop_flag;
-    guint        key_bit;
-    GThread     *thread;
+    GObject         base_instance;
+    guint           event_id;
+    gboolean        stop_flag;
+    guint           key_bit;
+    struct timeval  last_time;
+    GThread        *thread;
 };
 
 struct _KtKeyListenerClass
@@ -163,19 +166,26 @@ void
 kt_key_listener_listen (KtKeyListener *instance)
 {
     if (!instance) return;
-    gchar thread_name[20];
-    sprintf(thread_name, "keyboard%d", instance->event_id);
+    /* gchar thread_name[20]; */
+    /* sprintf(thread_name, "keyboard%d", instance->event_id); */
     instance->stop_flag = FALSE;
-    instance->thread = g_thread_new (thread_name,
+    instance->thread = g_thread_new (NULL,
             &kt_key_listen_func,
             instance);
 }
 
 static void
-kt_key_listener_set_key(KtKeyListener *instance, gchar key_code)
+kt_key_listener_set_key(KtKeyListener *instance, struct input_event *press)
 {
-    instance->key_bit = (instance->key_bit << 1) | key_code;
-    if (instance->key_bit != key_lsr_spec_key) 
+    time_t diff_time = press->time.tv_sec - instance->last_time.tv_sec;
+    instance->last_time = press->time;
+    if (diff_time > 5)
+    {
+        instance->key_bit = press->code;
+        return;
+    }
+    instance->key_bit = (instance->key_bit << 1) | press->code;
+    if (instance->key_bit == key_lsr_spec_key) 
     {
         g_signal_emit(instance, 
                 signals[SIGNAL_SHOW_WINDOW],
@@ -183,7 +193,7 @@ kt_key_listener_set_key(KtKeyListener *instance, gchar key_code)
     }
 }
 
-static gpointer
+gpointer
 kt_key_listen_func (gpointer instance)
 {
     KtKeyListener *key_listener = KT_KEY_LISTENER(instance);
@@ -198,18 +208,19 @@ kt_key_listen_func (gpointer instance)
         return instance;
     }
     while (!g_stop_listen &&
-            !key_listener->stop_flag)
+          !key_listener->stop_flag)
     {
         if ((read(key_fd, &ie, sizeof (struct input_event)) 
                     != sizeof (struct input_event)))
             continue;
         if (ie.type != EV_KEY) continue;
-        if (ie.value != 0 && ie.value != 1) continue;
+        /* if (ie.value != 0 && ie.value != 1) continue; */
+        if (ie.value != 1) continue;
         g_signal_emit(key_listener,
             signals[SIGNAL_KEY_PRESS],
             0,
             ie.code); // GType *
-        kt_key_listener_set_key(key_listener, ie.code);
+        kt_key_listener_set_key(key_listener, &ie);
     }
     return instance;
 }

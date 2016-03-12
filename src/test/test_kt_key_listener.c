@@ -1,8 +1,9 @@
 #include "../kt_key_listener.h"
 #include "../kt_keyevt.h"
 
-gpointer key_press_cb(KtKeyListener* lsn, gpointer data)
+gpointer key_press_cb(KtKeyListener* lsn, guint key, gpointer data)
 {
+    printf ("key %d pressed\n", key);
 }
 
 int main(int argc, char *argv[])
@@ -22,7 +23,6 @@ int main(int argc, char *argv[])
             G_CALLBACK(key_press_cb), NULL);
     kt_key_listener_listen (listener);
     kt_key_listener_wait(listener);
-    gtk_main();
     return 0;
 }
 
