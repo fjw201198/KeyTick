@@ -1,7 +1,7 @@
 #ifndef KEYTICK_SRC_KT_KEY_LISTNER_H_
 #define KEYTICK_SRC_KT_KEY_LISTNER_H_
 
-#include <gtk/gkt.h>
+#include <gtk/gtk.h>
 #define KT_TYPE_KEY_LISTENER               (kt_key_listener_get_type ())
 #define KT_KEY_LISTENER(obj)               (G_TYPE_CHECK_INSTANCE_CAST((obj), KT_TYPE_KEY_LISTENER, KtKeyListener))
 #define KT_IS_KEY_LISTENER(obj)            (G_TYPE_CHECK_INSTANCE_TYPE((obj), KT_TYPE_KEY_LISTENER))
@@ -14,8 +14,8 @@ typedef struct _KtKeyListenerClass  KtKeyListenerClass;
 
 GType           kt_key_listener_get_type            (void) G_GNUC_CONST;
 
-GObject*        kt_key_listener_new                 (void);
-GObject*        kt_key_listener_new_with_event_id   (guint evt_id);
+KtKeyListener*  kt_key_listener_new                 (void);
+KtKeyListener*  kt_key_listener_new_with_event_id   (guint evt_id);
 void            kt_key_listener_listen              (KtKeyListener *instance);
 void            kt_key_listener_stop                (void);
 void            kt_key_listener_wait                (KtKeyListener *instance);

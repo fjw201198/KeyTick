@@ -28,7 +28,7 @@ static guint key_lsr_spec_key = 'A' | ('S' << 1) | ('D' << 2) | ('F' << 3);
 
 struct _KtKeyListener
 {
-    GObject      base_instance
+    GObject      base_instance;
     guint        event_id;
     gboolean     stop_flag;
     guint        key_bit;
@@ -70,7 +70,7 @@ kt_key_listener_set_property (GObject      *object,
 static void
 kt_key_listener_get_property (GObject       *object,
 			      guint 	     prop_id,
-			      const GValue  *value,
+			      GValue  *value,
 			      GParamSpec    *pspec)
 {
     KtKeyListener *listener = KT_KEY_LISTENER(object);
@@ -98,7 +98,7 @@ kt_key_listener_init (KtKeyListener *instance)
 }
 
 static void
-kt_key_lisener_class_init (KtKeyListenerClass *klass)
+kt_key_listener_class_init (KtKeyListenerClass *klass)
 {
     GObjectClass        *object_class = G_OBJECT_CLASS (klass);
     object_class->set_property = kt_key_listener_set_property;
@@ -131,7 +131,7 @@ kt_key_lisener_class_init (KtKeyListenerClass *klass)
             g_cclosure_marshal_VOID__INT,
             G_TYPE_NONE, 1,
             G_TYPE_INT);
-    g_signals[SIGNAL_SHOW_WINDOW] = g_signal_new (
+    signals[SIGNAL_SHOW_WINDOW] = g_signal_new (
             "kt-show-window",
             G_TYPE_FROM_CLASS (object_class),
             G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
@@ -140,34 +140,34 @@ kt_key_lisener_class_init (KtKeyListenerClass *klass)
             G_TYPE_NONE, 0, NULL);
 }
 
-GObject *
+KtKeyListener *
 kt_key_listener_new(void)
 {
-    GObject *listener = g_object_new(
+    KtKeyListener *listener = g_object_new(
             KT_TYPE_KEY_LISTENER, 
             NULL);
     return listener;
 }
 
-GObject *
+KtKeyListener *
 kt_key_listener_new_with_event_id(guint evt_id)
 {
-    GObject *listener = g_object_new(
+    KtKeyListener *listener = g_object_new(
             KT_TYPE_KEY_LISTENER, 
-            "eventid", 
-            evt_id);
+            NULL);
+    listener->event_id = evt_id;
     return listener;
 }
 
-static void
+void
 kt_key_listener_listen (KtKeyListener *instance)
 {
     if (!instance) return;
     gchar thread_name[20];
-    sprintf_s(thread_name, 20, "keyboard%d", instance->event_id);
+    sprintf(thread_name, "keyboard%d", instance->event_id);
     instance->stop_flag = FALSE;
     instance->thread = g_thread_new (thread_name,
-            kt_key_listen_func,
+            &kt_key_listen_func,
             instance);
 }
 
@@ -175,7 +175,7 @@ static void
 kt_key_listener_set_key(KtKeyListener *instance, gchar key_code)
 {
     instance->key_bit = (instance->key_bit << 1) | key_code;
-    if (instance->key_bit != g_lsr_spec_key) 
+    if (instance->key_bit != key_lsr_spec_key) 
     {
         g_signal_emit(instance, 
                 signals[SIGNAL_SHOW_WINDOW],
@@ -184,24 +184,24 @@ kt_key_listener_set_key(KtKeyListener *instance, gchar key_code)
 }
 
 static gpointer
-kt_key_listener_func (gpointer instance)
+kt_key_listen_func (gpointer instance)
 {
-    KtKeyListner *key_listener = KT_KEY_LISTENER(instance);
+    KtKeyListener *key_listener = KT_KEY_LISTENER(instance);
     int key_fd;
     gchar dev_path[25] = {0};
     struct input_event  ie;
-    sprintf_s(dev_path, 25, 
+    sprintf(dev_path, 
             "/dev/input/event%d", 
             key_listener->event_id);
     if ((key_fd = open(dev_path, O_RDONLY)) < 0)
     {
         return instance;
     }
-    while (g_stop_listen &&
-            key_listener->stop_flag)
+    while (!g_stop_listen &&
+            !key_listener->stop_flag)
     {
         if ((read(key_fd, &ie, sizeof (struct input_event)) 
-                    != sizeof (struct input_event))
+                    != sizeof (struct input_event)))
             continue;
         if (ie.type != EV_KEY) continue;
         if (ie.value != 0 && ie.value != 1) continue;
