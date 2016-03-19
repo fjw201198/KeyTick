@@ -11,7 +11,7 @@
 static const gchar *tock_file  = "tock.wav";
 static const gchar *tick_file  = "tick.wav";
 static const gchar *water_file = "water.wav";
-static const gchar *config     = "keytick.conf";
+static const gchar *config     = "keytick.ini";
 
 enum
 {
@@ -39,7 +39,7 @@ struct _KtPlayer
     ALCcontext  *context;
     ALuint       vol;
     gboolean     chg_etc;
-    GSettings   *settings;
+    GKeyFile    *settings;
 };
 
 struct _KtPlayerClass
@@ -54,40 +54,51 @@ G_DEFINE_TYPE (KtPlayer, kt_player, G_TYPE_OBJECT)
 static gpointer kt_player_load (KtPlayer *player, gpointer data);
 
 static gchar *
+kt_player_get_cur_path (gchar **curpath, size_t* psize)
+{
+    /* get current path */
+    gchar  path[50];
+    gchar *pos = NULL;
+    size_t fname_len = 0;
+    int    flag = 1;
+    bzero(path, 50);
+    sprintf (path, "/proc/%d/exe", getpid());
+    *curpath = g_malloc(PATH_MAX);
+    *psize = readlink(path, *curpath, PATH_MAX);
+    if (*psize < 0) 
+    {
+        g_free (*curpath);
+    }
+    pos = strrchr(*curpath, '/');
+    *(pos + 1) = '\0';
+    *psize = (pos - *curpath) + 1;
+    return *curpath;
+}
+
+static gchar *
 kt_player_get_file_path (const gchar *fname)
 {
     gchar *filepath = NULL;
     do
     {
-        /* get current path */
-        gchar  path[50];
         gchar *pos = NULL;
         size_t path_size;
-        size_t fname_len = 0;
-        int    flag = 1;
-        bzero(path, 50);
-        sprintf (path, "/proc/%d/exe", getpid());
-        filepath = g_malloc(PATH_MAX * sizeof gchar);
-        path_size = readlink(path, filepath, PATH_MAX);
-        if (path_size < 0) 
-        {
-            g_free (filepath);
-        }
-        *(filepath+path_size) = '\0';
-        pos = strrchr(filepath, '/');
-        pos = pos + 1;
+        size_t fname_len;
+        filepath = g_malloc(PATH_MAX);
+        kt_player_get_cur_path(&filepath, &path_size);
         fname_len = strlen(fname) + 1;
         /* find file in current directory */
-        memmove (pos, fname, fname_len);
+        strcat(filepath, fname);
         if (access (filepath, F_OK) == 0) break;
         /* find file in ../sound, attention sizeof operator, it will bigger then strlen */
-        memmove (pos, "../sound/", sizeof "../sound");
-        pos = pos + sizeof "../sound/";
+        pos = filepath + path_size;
+        memmove (pos, "../sound/", sizeof("../sound"));
+        pos = pos + sizeof("../sound");
         memmove (pos, fname, fname_len);
         if (access (filepath, F_OK) == 0) break;
         /* find file in /usr/share/keytick/sound */
-        memmove (filepath, "/usr/share/keytick/", sizeof "/usr/share/keytick");
-        pos = filepath + sizeof "/usr/share/keytick";
+        memmove (filepath, "/usr/share/keytick/", sizeof ("/usr/share/keytick"));
+        pos = filepath + sizeof ("/usr/share/keytick");
         memmove (pos, fname, fname_len);
         if (access (filepath, F_OK) == 0) break;
         g_free (filepath);
@@ -119,23 +130,41 @@ kt_player_init (KtPlayer *player)
         gchar  *filepath = NULL;
         ALuint *psrc     = NULL;
         player->chg_etc = FALSE;
-        player->settings = g_settings_new_with_path ("player_conf", config);
-        player->srcs    = g_malloc (KT_NSND * sizeof ALuint);
-        player->buffers = g_malloc (KT_NSND * sizeof ALuint);
+        gchar *curpath;
+        gchar *pos;
+        size_t psize;
+        kt_player_get_cur_path(&curpath, &psize);
+        pos = curpath + psize;
+        memmove(pos, config, strlen(config)+1);
+        if (access (curpath, F_OK) != 0)
+        {
+            memmove(curpath, "/etc/", sizeof ("/etc"));
+            pos = curpath + sizeof("/etc");
+            memmove(pos, config, strlen(config)+1);
+            printf("curpath: %s\n", curpath);
+            if (access (curpath, F_OK) != 0)
+            {
+                printf("Error: can not find the config file\n");
+                return;
+            }
+        }
+        player->settings = g_key_file_new();
+        g_key_file_load_from_file(player->settings, 
+                                  curpath, 
+                                  G_KEY_FILE_KEEP_COMMENTS,
+                                  NULL);
+
+        player->srcs    = g_malloc (KT_NSND * sizeof (ALuint));
+        player->buffers = g_malloc (KT_NSND * sizeof (ALuint));
         player->cur_src = player->srcs;
         kt_player_load(player, NULL);
         player->device  = alcOpenDevice (NULL);
-        if (alGetError() != AL_NO_ERROR)
+        if (!player->device)
         {
             kt_player_uninit (player, NULL);
             break;
         }
         player->context = alcCreateContext (player->device, NULL);
-        if (alGetError() != AL_NO_ERROR)
-        {
-            kt_player_uninit (player, NULL);
-            break;
-        }
         alcMakeContextCurrent (player->context);
         if (alGetError() != AL_NO_ERROR)
         {
@@ -223,10 +252,10 @@ kt_player_load (KtPlayer *player, gpointer data)
     do 
     {
         guint tmp_val;
-        tmp_val = g_settings_get_uint (player->settings, "vol");
+        tmp_val = g_key_file_get_uint64 (player->settings, "KeyTick", "vol", NULL);
         if (tmp_val > 100) break;
         player->vol = tmp_val;
-        tmp_val = g_settings_get_uint (player->settings, "style");
+        tmp_val = g_key_file_get_uint64 (player->settings, "KeyTick", "style", NULL);
         if (tmp_val >= KT_NSND) break;
         player->cur_src = player->srcs + tmp_val;
     } while (0);
@@ -239,9 +268,9 @@ kt_player_save_config (KtPlayer *player)
     {
         guint tmp_val;
         if (!player || player->chg_etc != TRUE) break;
-        g_settings_set_uint (player->settings, "vol", player->vol);
+        g_key_file_set_uint64 (player->settings, "KeyTick", "vol", player->vol);
         tmp_val = player->cur_src - player->srcs;
-        g_settings_set_uint (player->settings, "style", tmp_val);
+        g_key_file_set_uint64 (player->settings, "KeyTick", "style", tmp_val);
     } while (0);
 }
 
@@ -335,6 +364,14 @@ kt_player_class_init (KtPlayerClass *klass)
                                            g_cclosure_marshal_VOID__VOID,
                                            G_TYPE_NONE, 0,
                                            NULL);
+}
+
+KtPlayer *
+kt_player_new(void)
+{
+    KtPlayer *player;
+    player = g_object_new(KT_TYPE_PLAYER, NULL);
+    return player;
 }
 
 void

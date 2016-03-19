@@ -24,5 +24,6 @@ GType           kt_player_get_type          (void);
 void            kt_player_play              (KtPlayer *player);
 KtPlayer *      kt_player_new               (void);
 void            kt_player_save_config       (KtPlayer *player);
+void            kt_player_alut_init         (int *argc, char*argv[]);
 
 #endif
