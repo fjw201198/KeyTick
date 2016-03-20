@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <AL/al.h>
 #include <AL/alc.h>
 #include <AL/alut.h>
@@ -11,6 +12,7 @@
 static const gchar *tock_file  = "tock.wav";
 static const gchar *tick_file  = "tick.wav";
 static const gchar *water_file = "water.wav";
+
 static const gchar *config     = "keytick.ini";
 
 enum
@@ -40,6 +42,7 @@ struct _KtPlayer
     ALuint       vol;
     gboolean     chg_etc;
     GKeyFile    *settings;
+    gchar       *confpath;
 };
 
 struct _KtPlayerClass
@@ -107,7 +110,44 @@ kt_player_get_file_path (const gchar *fname)
     return filepath;
 }
 
-static gpointer
+static gchar *
+kt_player_get_conf_path()
+{
+    gchar *curpath;
+    do 
+    {
+        gchar *pos;
+        size_t psize;
+        size_t conf_len;
+        gchar *home;
+        int fd;
+        kt_player_get_cur_path(&curpath, &psize);
+        pos = curpath + psize;
+        conf_len = strlen(config) + 1;
+        memmove(pos, config, conf_len);
+        if (access (curpath, F_OK) == 0) break;
+        memmove(curpath, "/etc/", sizeof ("/etc"));
+        pos = curpath + sizeof("/etc");
+        memmove(pos, config, conf_len);
+        if (access (curpath, F_OK) == 0) break;
+        home = getenv("HOME");
+        psize = strlen(home);
+        memmove(curpath, home, psize);
+        pos = curpath + psize;
+        memmove(pos, "/.config/keytick/", sizeof("/.config/keytick"));
+        pos = pos + sizeof(".config/keytick/");
+        memmove(pos, config, conf_len);
+        if (access (curpath, F_OK) == 0) break;
+        fd = open(curpath, O_CREAT | O_RDWR);
+        write(fd, "[KeyTick]\n", sizeof("[KeyTick]\n"));
+        close(fd);
+        g_free(curpath);
+        curpath = NULL;
+    } while (0);
+    return curpath;
+}
+
+gpointer
 kt_player_uninit(KtPlayer *player, gpointer data)
 {
     /* release memory, and emite exit signal */
@@ -130,27 +170,28 @@ kt_player_init (KtPlayer *player)
         gchar  *filepath = NULL;
         ALuint *psrc     = NULL;
         player->chg_etc = FALSE;
-        gchar *curpath;
-        gchar *pos;
-        size_t psize;
-        kt_player_get_cur_path(&curpath, &psize);
-        pos = curpath + psize;
-        memmove(pos, config, strlen(config)+1);
-        if (access (curpath, F_OK) != 0)
-        {
-            memmove(curpath, "/etc/", sizeof ("/etc"));
-            pos = curpath + sizeof("/etc");
-            memmove(pos, config, strlen(config)+1);
-            printf("curpath: %s\n", curpath);
-            if (access (curpath, F_OK) != 0)
-            {
-                printf("Error: can not find the config file\n");
-                return;
-            }
-        }
+        /* gchar *curpath; */
+        /* gchar *pos; */
+        /* size_t psize; */
+        /* kt_player_get_cur_path(&curpath, &psize); */
+        /* pos = curpath + psize; */
+        /* memmove(pos, config, strlen(config)+1); */
+        /* if (access (curpath, F_OK) != 0) */
+        /* { */
+        /*     memmove(curpath, "/etc/", sizeof ("/etc")); */
+        /*     pos = curpath + sizeof("/etc"); */
+        /*     memmove(pos, config, strlen(config)+1); */
+        /*     printf("curpath: %s\n", curpath); */
+        /*     if (access (curpath, F_OK) != 0) */
+        /*     { */
+        /*         printf("Error: can not find the config file\n"); */
+        /*         break; */
+        /*     } */
+        /* } */
+        player->confpath = kt_player_get_conf_path();
         player->settings = g_key_file_new();
         g_key_file_load_from_file(player->settings, 
-                                  curpath, 
+                                  player->confpath, 
                                   G_KEY_FILE_KEEP_COMMENTS,
                                   NULL);
 
@@ -253,10 +294,10 @@ kt_player_load (KtPlayer *player, gpointer data)
     {
         guint tmp_val;
         tmp_val = g_key_file_get_uint64 (player->settings, "KeyTick", "vol", NULL);
-        if (tmp_val > 100) break;
+        if (tmp_val > 100) tmp_val = 100;
         player->vol = tmp_val;
         tmp_val = g_key_file_get_uint64 (player->settings, "KeyTick", "style", NULL);
-        if (tmp_val >= KT_NSND) break;
+        if (tmp_val >= KT_NSND) tmp_val = 1;
         player->cur_src = player->srcs + tmp_val;
     } while (0);
 }
@@ -271,6 +312,7 @@ kt_player_save_config (KtPlayer *player)
         g_key_file_set_uint64 (player->settings, "KeyTick", "vol", player->vol);
         tmp_val = player->cur_src - player->srcs;
         g_key_file_set_uint64 (player->settings, "KeyTick", "style", tmp_val);
+        g_key_file_save_to_file(player->settings, player->confpath, NULL);
     } while (0);
 }
 
@@ -341,7 +383,7 @@ kt_player_class_init (KtPlayerClass *klass)
                                                         G_PARAM_READWRITE));
     g_object_class_install_property (object_class, 
                                      PROP_SND_STYLE,
-                                     g_param_spec_uint ("sound-type",
+                                     g_param_spec_uint ("sound_type",
                                                         "sound-style",
                                                         "the kind of the sound",
                                                         0, KT_NSND - 1, 1,
@@ -378,4 +420,10 @@ void
 kt_player_play (KtPlayer *player)
 {
     alSourcePlay(*player->cur_src);
+}
+
+void
+kt_player_set_sound_type (KtPlayer *player, guint data)
+{
+    player->cur_src = player->srcs + data;
 }
