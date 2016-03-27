@@ -2,10 +2,9 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.69])
-AC_INIT([keytick], [1.0], [fjw201198@163.com])
+AC_INIT([keytick], [1.0.0], [fjw201198@163.com])
 AC_CONFIG_SRCDIR([kt_main.c])
 #AC_CONFIG_HEADERS([config.h])
-#AM_INIT_AUTOMAKE(keytick,1.0)
 AM_INIT_AUTOMAKE
 
 # Checks for programs.

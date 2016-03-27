@@ -140,7 +140,7 @@ kt_player_get_conf_path()
         pos = pos + sizeof(".config/keytick/");
         memmove(pos, config, conf_len);
         if (access (curpath, F_OK) == 0) break;
-        fd = open(curpath, O_CREAT | O_RDWR);
+        fd = open(curpath, O_CREAT | O_RDWR, 4755);
         write(fd, "[KeyTick]\n", sizeof("[KeyTick]\n"));
         close(fd);
         g_free(curpath);

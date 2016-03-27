@@ -275,8 +275,8 @@ kt_settings_ui.o: kt_settings_ui.c /usr/include/stdc-predef.h \
  /usr/include/pango-1.0/pango/pango-utils.h /usr/include/stdio.h \
  /usr/include/libio.h /usr/include/_G_config.h /usr/include/wchar.h \
  /usr/include/bits/stdio_lim.h /usr/include/bits/sys_errlist.h \
- /usr/include/bits/stdio.h /usr/include/cairo/cairo.h \
- /usr/include/cairo/cairo-version.h /usr/include/cairo/cairo-features.h \
+ /usr/include/cairo/cairo.h /usr/include/cairo/cairo-version.h \
+ /usr/include/cairo/cairo-features.h \
  /usr/include/cairo/cairo-deprecated.h \
  /usr/include/gtk-3.0/gdk/gdkscreen.h \
  /usr/include/gtk-3.0/gdk/gdkdisplay.h \
@@ -1244,8 +1244,6 @@ kt_settings_ui.h:
 /usr/include/bits/stdio_lim.h:
 
 /usr/include/bits/sys_errlist.h:
-
-/usr/include/bits/stdio.h:
 
 /usr/include/cairo/cairo.h:
 
