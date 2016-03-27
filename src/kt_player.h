@@ -27,5 +27,6 @@ void            kt_player_save_config       (KtPlayer *player);
 void            kt_player_alut_init         (int *argc, char*argv[]);
 gpointer        kt_player_uninit            (KtPlayer *player, gpointer data);
 void            kt_player_set_sound_type    (KtPlayer *player, guint data);
+guint           kt_player_get_sound_type    (KtPlayer *player);
 
 #endif

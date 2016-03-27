@@ -18,6 +18,7 @@ static const gchar *config     = "keytick.ini";
 enum
 {
     SIGNAL_LOAD,
+    SIGNAL_PLAY,
     SIGNAL_EXIT,
     N_SIGNALS
 };
@@ -50,6 +51,7 @@ struct _KtPlayerClass
     GObjectClass    parent_class;
     gpointer        (*kt_exit) (KtPlayer* player, gpointer data);
     gpointer        (*kt_load) (KtPlayer* player, gpointer data);
+    void            (*kt_play) (KtPlayer* player, gpointer data);
 };
 
 G_DEFINE_TYPE (KtPlayer, kt_player, G_TYPE_OBJECT)
@@ -100,8 +102,8 @@ kt_player_get_file_path (const gchar *fname)
         memmove (pos, fname, fname_len);
         if (access (filepath, F_OK) == 0) break;
         /* find file in /usr/share/keytick/sound */
-        memmove (filepath, "/usr/share/keytick/", sizeof ("/usr/share/keytick"));
-        pos = filepath + sizeof ("/usr/share/keytick");
+        memmove (filepath, "/usr/share/keytick/sound/", sizeof ("/usr/share/keytick/sound/"));
+        pos = filepath + sizeof ("/usr/share/keytick/sound");
         memmove (pos, fname, fname_len);
         if (access (filepath, F_OK) == 0) break;
         g_free (filepath);
@@ -126,8 +128,8 @@ kt_player_get_conf_path()
         conf_len = strlen(config) + 1;
         memmove(pos, config, conf_len);
         if (access (curpath, F_OK) == 0) break;
-        memmove(curpath, "/etc/", sizeof ("/etc"));
-        pos = curpath + sizeof("/etc");
+        memmove(curpath, "/etc/keytick/", sizeof ("/etc/keytick"));
+        pos = curpath + sizeof("/etc/keytick");
         memmove(pos, config, conf_len);
         if (access (curpath, F_OK) == 0) break;
         home = getenv("HOME");
@@ -163,6 +165,12 @@ kt_player_uninit(KtPlayer *player, gpointer data)
 } 
 
 static void
+kt_player_play_cb (KtPlayer *player, gpointer data)
+{
+    alSourcePlay (*player->cur_src);
+}
+
+static void
 kt_player_init (KtPlayer *player)
 {
     do
@@ -170,24 +178,6 @@ kt_player_init (KtPlayer *player)
         gchar  *filepath = NULL;
         ALuint *psrc     = NULL;
         player->chg_etc = FALSE;
-        /* gchar *curpath; */
-        /* gchar *pos; */
-        /* size_t psize; */
-        /* kt_player_get_cur_path(&curpath, &psize); */
-        /* pos = curpath + psize; */
-        /* memmove(pos, config, strlen(config)+1); */
-        /* if (access (curpath, F_OK) != 0) */
-        /* { */
-        /*     memmove(curpath, "/etc/", sizeof ("/etc")); */
-        /*     pos = curpath + sizeof("/etc"); */
-        /*     memmove(pos, config, strlen(config)+1); */
-        /*     printf("curpath: %s\n", curpath); */
-        /*     if (access (curpath, F_OK) != 0) */
-        /*     { */
-        /*         printf("Error: can not find the config file\n"); */
-        /*         break; */
-        /*     } */
-        /* } */
         player->confpath = kt_player_get_conf_path();
         player->settings = g_key_file_new();
         g_key_file_load_from_file(player->settings, 
@@ -202,78 +192,78 @@ kt_player_init (KtPlayer *player)
         player->device  = alcOpenDevice (NULL);
         if (!player->device)
         {
-            kt_player_uninit (player, NULL);
+            /* kt_player_uninit (player, NULL); */
             break;
         }
         player->context = alcCreateContext (player->device, NULL);
         alcMakeContextCurrent (player->context);
         if (alGetError() != AL_NO_ERROR)
         {
-            kt_player_uninit (player, NULL);
+            /* kt_player_uninit (player, NULL); */
             break;
         }
         filepath = kt_player_get_file_path (tock_file);
         if (! filepath) 
         {
-            kt_player_uninit (player, NULL);
+            /* kt_player_uninit (player, NULL); */
             break;
         }
         *player->buffers = alutCreateBufferFromFile (filepath);
         g_free(filepath);
         if (alGetError() != AL_NO_ERROR)
         {
-            kt_player_uninit (player, NULL);
+            /* kt_player_uninit (player, NULL); */
             break;
         }
         filepath = kt_player_get_file_path (tick_file);
         if (! filepath)
         {
-            kt_player_uninit (player, NULL);
+            /* kt_player_uninit (player, NULL); */
             break;
         }
         *(player->buffers + 1) = alutCreateBufferFromFile (filepath);
         g_free (filepath);
         if (alGetError() != AL_NO_ERROR)
         {
-            kt_player_uninit (player, NULL);
+            /* kt_player_uninit (player, NULL); */
             break;
         }
         filepath = kt_player_get_file_path (water_file);
         if (! filepath)
         {
-            kt_player_uninit (player, NULL);
+            /* kt_player_uninit (player, NULL); */
             break;
         }
         *(player->buffers + 2) = alutCreateBufferFromFile (filepath);
         g_free (filepath);
         if (alGetError() != AL_NO_ERROR)
         {
-            kt_player_uninit (player, NULL);
+            /* kt_player_uninit (player, NULL); */
             break;
         }
         alGenSources(KT_NSND, player->srcs);
         if (alGetError() != AL_NO_ERROR)
         {
-            kt_player_uninit (player, NULL);
+            /* kt_player_uninit (player, NULL); */
             break;
         }
         psrc = player->srcs;
         alSourcei (*psrc++, AL_BUFFER, *player->buffers);
         if (alGetError() != AL_NO_ERROR)
         {
-            kt_player_uninit (player, NULL);
+            /* kt_player_uninit (player, NULL); */
             break;
         }
         alSourcei (*psrc++, AL_BUFFER, *(player->buffers + 1));
         if (alGetError() != AL_NO_ERROR)
         {
-            kt_player_uninit (player, NULL);
+            /* kt_player_uninit (player, NULL); */
             break;
         }
         alSourcei (*psrc, AL_BUFFER, *(player->buffers + 2));
         if (alGetError() != AL_NO_ERROR)
         {
-            kt_player_uninit (player, NULL);
+            /* kt_player_uninit (player, NULL); */
             break;
         }
 
@@ -371,9 +361,11 @@ kt_player_class_init (KtPlayerClass *klass)
 {
     klass->kt_exit = kt_player_uninit;
     klass->kt_load = kt_player_load;
+    klass->kt_play = kt_player_play_cb;
     GObjectClass    *object_class = G_OBJECT_CLASS (klass);
     object_class->get_property = kt_player_get_property;
     object_class->set_property = kt_player_set_property;
+    /* object_class->finalize = kt_player_uninit; */
     g_object_class_install_property (object_class,
                                      PROP_VOLUMN,
                                      g_param_spec_uint ("volumn",
@@ -406,6 +398,15 @@ kt_player_class_init (KtPlayerClass *klass)
                                            g_cclosure_marshal_VOID__VOID,
                                            G_TYPE_NONE, 0,
                                            NULL);
+
+    signals[SIGNAL_PLAY] = g_signal_new ("kt-player-play",
+                                         G_TYPE_FROM_CLASS (object_class),
+                                         G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
+                                         G_STRUCT_OFFSET (KtPlayerClass, kt_play),
+                                         NULL, NULL,
+                                         g_cclosure_marshal_VOID__VOID,
+                                         G_TYPE_NONE, 0,
+                                         NULL);
 }
 
 KtPlayer *
@@ -425,5 +426,17 @@ kt_player_play (KtPlayer *player)
 void
 kt_player_set_sound_type (KtPlayer *player, guint data)
 {
-    player->cur_src = player->srcs + data;
+    do 
+    {
+        guint index = player->cur_src - player->srcs;
+        if (data == index) break;
+        player->cur_src = player->srcs + data;
+        player->chg_etc = TRUE;
+    } while (0);
+}
+
+guint           
+kt_player_get_sound_type (KtPlayer *player)
+{
+    return player->cur_src - player->srcs;
 }

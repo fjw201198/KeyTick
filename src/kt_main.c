@@ -1,4 +1,5 @@
 //#include <gtk/gtk.h>
+#include <X11/Xlib.h>
 #include "kt_keyevt.h"
 #include "kt_key_listener.h"
 #include "kt_player.h"
@@ -23,14 +24,19 @@ KtMain *main_data;
 static gpointer
 kt_key_press_cb (KtKeyListener* lsn, guint key, gpointer data)
 {
-    kt_player_play (main_data->player);
+    /* kt_player_play (main_data->player); */
+    g_signal_emit_by_name (main_data->player, "kt-player-play", NULL);
     return lsn;
 }
 
 static gpointer
 kt_show_settings_cb (KtKeyListener* lsn, gpointer data)
 {
-    kt_settings_ui_show (KT_SETTINGS_UI (main_data->ui));
+    KtMain *ktmain = (KtMain *)data;
+    guint index = kt_player_get_sound_type (ktmain->player);
+    KtSettingsUi *ui = KT_SETTINGS_UI (ktmain->ui);
+    kt_settings_ui_set_active (ui, index);
+    g_signal_emit_by_name (ui, "ui-show", NULL);
     return lsn;
 }
 
@@ -55,14 +61,23 @@ kt_key_brds_new (void)
          ++ index, ++ pNode, node = node->entries.le_next)
     {
            *pNode = kt_key_listener_new_with_event_id(node->evtno);
-           g_signal_connect (*pNode, "kt-keypress",
-                             G_CALLBACK (kt_key_press_cb), NULL);
-           g_signal_connect (*pNode, "kt-show-window",
-                             G_CALLBACK (kt_show_settings_cb), NULL);
-
-           kt_key_listener_listen (*pNode);
     }
     return kbds;
+}
+
+static void 
+kt_key_brds_listen (KtMain* ktmain)
+{
+    guint index;
+    for (index = 0; index != ktmain->kbds->key_num; ++ index)
+    {
+       KtKeyListener *listener = *(ktmain->kbds->klsn + index);
+       g_signal_connect (listener, "kt-keypress",
+                         G_CALLBACK (kt_key_press_cb), NULL);
+       g_signal_connect (listener, "kt-show-window",
+                         G_CALLBACK (kt_show_settings_cb), ktmain); 
+        kt_key_listener_listen (listener);
+    }
 }
 
 static gpointer 
@@ -85,13 +100,16 @@ kt_main_new (void)
 {
     KtMain *km;
     KtSettingsUi *gui;
+    guint snd_type = 0;
     km = g_malloc (sizeof (KtMain));
     km->kbds = kt_key_brds_new ();
     km->player = kt_player_new ();
     g_signal_connect (km->player, "kt-player-exit", 
                       G_CALLBACK (kt_player_uninit), NULL);
     km->ui = kt_settings_ui_new ();
+    snd_type = kt_player_get_sound_type (km->player);
     gui = KT_SETTINGS_UI (km->ui);
+    kt_settings_ui_set_active (gui, snd_type);
     g_signal_connect (gui, "update-etc", 
                       G_CALLBACK (kt_update_etc_cb), NULL);
     g_signal_connect (gui, "ui-exit",
@@ -102,9 +120,11 @@ kt_main_new (void)
 int 
 main(int argc, char *argv[])
 {
+    XInitThreads();
     gtk_init (&argc, &argv);
     kt_player_alut_init (&argc, argv);
     main_data = kt_main_new (); 
-    kt_settings_ui_show (KT_SETTINGS_UI (main_data->ui));  
+    kt_key_brds_listen(main_data);
+    /* kt_settings_ui_show (KT_SETTINGS_UI (main_data->ui));   */
     gtk_main();
 }

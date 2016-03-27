@@ -26,7 +26,7 @@ enum
 static guint signals[N_SIGNALS];
 
 /* a 30, s 31, d 32, f 33 */
-static guint key_lsr_spec_key = 30 | (31 << 1) | (32 << 2) | (33 << 3);
+static guint key_lsr_spec_key = 33 | (32 << 8) | (31 << 16) | (30 << 24);
 
 struct _KtKeyListener
 {
@@ -184,9 +184,10 @@ kt_key_listener_set_key(KtKeyListener *instance, struct input_event *press)
         instance->key_bit = press->code;
         return;
     }
-    instance->key_bit = (instance->key_bit << 1) | press->code;
+    instance->key_bit = (instance->key_bit << 8) | press->code;
     if (instance->key_bit == key_lsr_spec_key) 
     {
+        /* printf ("emit kt-show-window signal\n"); */
         g_signal_emit(instance, 
                 signals[SIGNAL_SHOW_WINDOW],
                 0, NULL);

@@ -4,6 +4,7 @@ enum
 {
     SIGNAL_UPDATE,
     SIGNAL_EXIT,
+    SIGNAL_SHOW,
     N_SIGNALS
 };
 
@@ -35,6 +36,7 @@ struct _KtSettingsUi
 struct _KtSettingsUiClass
 {
     GtkWidgetClass   parent_class;
+    void           (*show_ui) (KtSettingsUi* ksu, gpointer data);
 };
 
 G_DEFINE_TYPE(KtSettingsUi, kt_settings_ui, GTK_TYPE_WIDGET);
@@ -42,16 +44,16 @@ G_DEFINE_TYPE(KtSettingsUi, kt_settings_ui, GTK_TYPE_WIDGET);
 static void 
 kt_settings_ui_finalize (GObject *ksu)
 {
-    KtSettingsUi *ui = KT_SETTINGS_UI (ksu);
-    gtk_widget_destroy (ui->window);
-    gtk_widget_destroy (ui->tips);
-    gtk_widget_destroy (ui->label);
-    gtk_widget_destroy (ui->combox);
-    gtk_list_store_clear (ui->list_store);
-    gtk_widget_destroy (ui->box);
-    gtk_widget_destroy (ui->hbox);
-    gtk_widget_destroy (ui->close_btn);
-    gtk_widget_destroy (ui->exit_btn);
+    /* KtSettingsUi *ui = KT_SETTINGS_UI (ksu); */
+    /* gtk_widget_destroy (ui->window); */
+    /* gtk_widget_destroy (ui->tips); */
+    /* gtk_widget_destroy (ui->label); */
+    /* gtk_widget_destroy (ui->combox); */
+    /* gtk_list_store_clear (ui->list_store); */
+    /* gtk_widget_destroy (ui->box); */
+    /* gtk_widget_destroy (ui->hbox); */
+    /* gtk_widget_destroy (ui->close_btn); */
+    /* gtk_widget_destroy (ui->exit_btn); */
     G_OBJECT_CLASS (kt_settings_ui_parent_class)->finalize (ksu);
 }
 
@@ -64,11 +66,14 @@ kt_settings_ui_close (GtkButton *btn, gpointer data)
 }
 
 static gpointer
-kt_settings_ui_exit (KtSettingsUi *ksu, gpointer data)
+kt_settings_ui_exit (GtkWidget *exit_btn, gpointer data)
 {
-    gtk_main_quit ();
+    KtSettingsUi *ksu = KT_SETTINGS_UI (data);
+    g_signal_emit_by_name (ksu, "ui-exit", NULL);
     return ksu;
 }
+
+static void kt_settings_ui_show_cb (KtSettingsUi *ksu, gpointer data);
 
 static gpointer
 kt_settings_ui_change (GtkWidget *combox, gpointer data)
@@ -139,11 +144,12 @@ kt_settings_ui_init(KtSettingsUi *su)
     g_signal_connect (su->close_btn, "clicked", 
                       G_CALLBACK (kt_settings_ui_close), su->window);
     g_signal_connect (su->exit_btn, "clicked",
-                      G_CALLBACK (kt_settings_ui_exit), NULL);
+                      G_CALLBACK (kt_settings_ui_exit), su);
     g_signal_connect (su->window, "destroy", 
-                      G_CALLBACK (kt_settings_ui_exit), NULL);
+                      G_CALLBACK (kt_settings_ui_exit), su);
     g_signal_connect (su->combox, "changed",
                       G_CALLBACK (kt_settings_ui_change), su);
+    gtk_widget_show_all (su->window);
 }
 
 GtkWidget *
@@ -161,6 +167,7 @@ kt_settings_ui_class_init (KtSettingsUiClass *klass)
     /* GtkWidgetClass *widget_class = GTK_WIDGET_CLASS (klass); */
 
     object_class->finalize = kt_settings_ui_finalize;
+    klass->show_ui = kt_settings_ui_show_cb;
     
     signals[SIGNAL_UPDATE] = g_signal_new ("update-etc",
                                            G_TYPE_FROM_CLASS (object_class),
@@ -176,6 +183,14 @@ kt_settings_ui_class_init (KtSettingsUiClass *klass)
                                          g_cclosure_marshal_VOID__VOID,
                                          G_TYPE_NONE,
                                          0, NULL);
+    signals[SIGNAL_SHOW] = g_signal_new ("ui-show",
+                                         G_TYPE_FROM_CLASS (object_class),
+                                         G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
+                                         G_STRUCT_OFFSET (KtSettingsUiClass, show_ui),
+                                         NULL, NULL,
+                                         g_cclosure_marshal_VOID__VOID,
+                                         G_TYPE_NONE,
+                                         0, G_TYPE_NONE);
 }
 
 guint
@@ -214,7 +229,7 @@ kt_settings_ui_set_active (KtSettingsUi *ksu, guint index)
 
     if (ind == index)
     {
-        gtk_combo_box_set_active_iter (GTK_COMBO_BOX (ksu->list_store), &iter);
+        gtk_combo_box_set_active_iter (GTK_COMBO_BOX (ksu->combox), &iter);
     }
 }
 
@@ -222,6 +237,11 @@ void
 kt_settings_ui_show (KtSettingsUi *ksu)
 {
     gtk_widget_show_all (ksu->window);
+}
+
+void kt_settings_ui_show_cb (KtSettingsUi *ksu, gpointer data)
+{
+    kt_settings_ui_show (ksu);
 }
 
 void 

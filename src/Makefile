@@ -15,6 +15,7 @@
 
 
 
+
 am__is_gnu_make = { \
   if test -z '$(MAKELEVEL)'; then \
     false; \
@@ -99,7 +100,8 @@ am__CONFIG_DISTCLEAN_FILES = config.status config.cache config.log \
 mkinstalldirs = $(install_sh) -d
 CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
-am__installdirs = "$(DESTDIR)$(bindir)"
+am__installdirs = "$(DESTDIR)$(bindir)" "$(DESTDIR)$(configdir)" \
+	"$(DESTDIR)$(sounddir)"
 PROGRAMS = $(bin_PROGRAMS)
 am_keytick_OBJECTS = kt_main.$(OBJEXT) kt_keyevt.$(OBJEXT) \
 	kt_key_listener.$(OBJEXT) kt_player.$(OBJEXT) \
@@ -143,6 +145,34 @@ am__can_run_installinfo = \
     n|no|NO) false;; \
     *) (install-info --version) >/dev/null 2>&1;; \
   esac
+am__vpath_adj_setup = srcdirstrip=`echo "$(srcdir)" | sed 's|.|.|g'`;
+am__vpath_adj = case $$p in \
+    $(srcdir)/*) f=`echo "$$p" | sed "s|^$$srcdirstrip/||"`;; \
+    *) f=$$p;; \
+  esac;
+am__strip_dir = f=`echo $$p | sed -e 's|^.*/||'`;
+am__install_max = 40
+am__nobase_strip_setup = \
+  srcdirstrip=`echo "$(srcdir)" | sed 's/[].[^$$\\*|]/\\\\&/g'`
+am__nobase_strip = \
+  for p in $$list; do echo "$$p"; done | sed -e "s|$$srcdirstrip/||"
+am__nobase_list = $(am__nobase_strip_setup); \
+  for p in $$list; do echo "$$p $$p"; done | \
+  sed "s| $$srcdirstrip/| |;"' / .*\//!s/ .*/ ./; s,\( .*\)/[^/]*$$,\1,' | \
+  $(AWK) 'BEGIN { files["."] = "" } { files[$$2] = files[$$2] " " $$1; \
+    if (++n[$$2] == $(am__install_max)) \
+      { print $$2, files[$$2]; n[$$2] = 0; files[$$2] = "" } } \
+    END { for (dir in files) print dir, files[dir] }'
+am__base_list = \
+  sed '$$!N;$$!N;$$!N;$$!N;$$!N;$$!N;$$!N;s/\n/ /g' | \
+  sed '$$!N;$$!N;$$!N;$$!N;s/\n/ /g'
+am__uninstall_files_from_dir = { \
+  test -z "$$files" \
+    || { test ! -d "$$dir" && test ! -f "$$dir" && test ! -r "$$dir"; } \
+    || { echo " ( cd '$$dir' && rm -f" $$files ")"; \
+         $(am__cd) "$$dir" && rm -f $$files; }; \
+  }
+DATA = $(config_DATA) $(sound_DATA)
 am__tagged_files = $(HEADERS) $(SOURCES) $(TAGS_FILES) $(LISP)
 # Read a list of newline-separated strings from the standard input,
 # and print each of them once, without duplicates.  Input order is
@@ -272,8 +302,12 @@ top_builddir = .
 top_srcdir = .
 AUTOMAKE_OPTIONS = foreign
 keytick_SOURCES = kt_main.c kt_keyevt.c kt_key_listener.c kt_player.c kt_settings_ui.c
-AM_CPPFLAGS = $(shell pkg-config gtk+-3.0 --cflags)
-keytick_LDFLAGS = $(shell pkg-config gtk+-3.0 --libs) -lopenal -lalut
+AM_CFLAGS = $(shell pkg-config gtk+-3.0 --cflags)
+keytick_LDFLAGS = $(shell pkg-config gtk+-3.0 --libs) -lopenal -lalut -lX11
+configdir = /etc/keytick
+config_DATA = ../bin/keytick.ini
+sounddir = /usr/share/keytick/sound
+sound_DATA = ../sound/*
 all: all-am
 
 .SUFFIXES:
@@ -383,6 +417,48 @@ include ./$(DEPDIR)/kt_settings_ui.Po
 #	$(AM_V_CC)source='$<' object='$@' libtool=no \
 #	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) \
 #	$(AM_V_CC_no)$(COMPILE) -c -o $@ `$(CYGPATH_W) '$<'`
+install-configDATA: $(config_DATA)
+	@$(NORMAL_INSTALL)
+	@list='$(config_DATA)'; test -n "$(configdir)" || list=; \
+	if test -n "$$list"; then \
+	  echo " $(MKDIR_P) '$(DESTDIR)$(configdir)'"; \
+	  $(MKDIR_P) "$(DESTDIR)$(configdir)" || exit 1; \
+	fi; \
+	for p in $$list; do \
+	  if test -f "$$p"; then d=; else d="$(srcdir)/"; fi; \
+	  echo "$$d$$p"; \
+	done | $(am__base_list) | \
+	while read files; do \
+	  echo " $(INSTALL_DATA) $$files '$(DESTDIR)$(configdir)'"; \
+	  $(INSTALL_DATA) $$files "$(DESTDIR)$(configdir)" || exit $$?; \
+	done
+
+uninstall-configDATA:
+	@$(NORMAL_UNINSTALL)
+	@list='$(config_DATA)'; test -n "$(configdir)" || list=; \
+	files=`for p in $$list; do echo $$p; done | sed -e 's|^.*/||'`; \
+	dir='$(DESTDIR)$(configdir)'; $(am__uninstall_files_from_dir)
+install-soundDATA: $(sound_DATA)
+	@$(NORMAL_INSTALL)
+	@list='$(sound_DATA)'; test -n "$(sounddir)" || list=; \
+	if test -n "$$list"; then \
+	  echo " $(MKDIR_P) '$(DESTDIR)$(sounddir)'"; \
+	  $(MKDIR_P) "$(DESTDIR)$(sounddir)" || exit 1; \
+	fi; \
+	for p in $$list; do \
+	  if test -f "$$p"; then d=; else d="$(srcdir)/"; fi; \
+	  echo "$$d$$p"; \
+	done | $(am__base_list) | \
+	while read files; do \
+	  echo " $(INSTALL_DATA) $$files '$(DESTDIR)$(sounddir)'"; \
+	  $(INSTALL_DATA) $$files "$(DESTDIR)$(sounddir)" || exit $$?; \
+	done
+
+uninstall-soundDATA:
+	@$(NORMAL_UNINSTALL)
+	@list='$(sound_DATA)'; test -n "$(sounddir)" || list=; \
+	files=`for p in $$list; do echo $$p; done | sed -e 's|^.*/||'`; \
+	dir='$(DESTDIR)$(sounddir)'; $(am__uninstall_files_from_dir)
 
 ID: $(am__tagged_files)
 	$(am__define_uniq_tagged_files); mkid -fID $$unique
@@ -608,9 +684,9 @@ distcleancheck: distclean
 	       exit 1; } >&2
 check-am: all-am
 check: check-am
-all-am: Makefile $(PROGRAMS)
+all-am: Makefile $(PROGRAMS) $(DATA)
 installdirs:
-	for dir in "$(DESTDIR)$(bindir)"; do \
+	for dir in "$(DESTDIR)$(bindir)" "$(DESTDIR)$(configdir)" "$(DESTDIR)$(sounddir)"; do \
 	  test -z "$$dir" || $(MKDIR_P) "$$dir"; \
 	done
 install: install-am
@@ -666,7 +742,7 @@ info: info-am
 
 info-am:
 
-install-data-am:
+install-data-am: install-configDATA install-soundDATA
 
 install-dvi: install-dvi-am
 
@@ -713,7 +789,8 @@ ps: ps-am
 
 ps-am:
 
-uninstall-am: uninstall-binPROGRAMS
+uninstall-am: uninstall-binPROGRAMS uninstall-configDATA \
+	uninstall-soundDATA
 
 .MAKE: install-am install-strip
 
@@ -724,14 +801,16 @@ uninstall-am: uninstall-binPROGRAMS
 	distcheck distclean distclean-compile distclean-generic \
 	distclean-tags distcleancheck distdir distuninstallcheck dvi \
 	dvi-am html html-am info info-am install install-am \
-	install-binPROGRAMS install-data install-data-am install-dvi \
-	install-dvi-am install-exec install-exec-am install-html \
-	install-html-am install-info install-info-am install-man \
-	install-pdf install-pdf-am install-ps install-ps-am \
-	install-strip installcheck installcheck-am installdirs \
-	maintainer-clean maintainer-clean-generic mostlyclean \
-	mostlyclean-compile mostlyclean-generic pdf pdf-am ps ps-am \
-	tags tags-am uninstall uninstall-am uninstall-binPROGRAMS
+	install-binPROGRAMS install-configDATA install-data \
+	install-data-am install-dvi install-dvi-am install-exec \
+	install-exec-am install-html install-html-am install-info \
+	install-info-am install-man install-pdf install-pdf-am \
+	install-ps install-ps-am install-soundDATA install-strip \
+	installcheck installcheck-am installdirs maintainer-clean \
+	maintainer-clean-generic mostlyclean mostlyclean-compile \
+	mostlyclean-generic pdf pdf-am ps ps-am tags tags-am uninstall \
+	uninstall-am uninstall-binPROGRAMS uninstall-configDATA \
+	uninstall-soundDATA
 
 .PRECIOUS: Makefile
 
