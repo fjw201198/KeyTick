@@ -23,5 +23,14 @@
 ## 卸载方法  
 执行 `make uninstall`, 需要root权限  
 
-# 使用KeyTick而不安装的默认的路径  
+## 使用KeyTick而不安装的默认的路径  
 将src下编译好的文件拷贝到bin下即可, 请保留sound目录，否则找不到声音文件。
+
+# 安装KeyTick使用RPM
+[KeyTick-1.0.0-1.x86_64.rpm](http://pan.baidu.com/s/1skLjwg1)  
+点击上面的链接后，通过`rpm -ivh KeyTick-1.0.0-1.x86_64.rpm`即可完成安装。  
+安装过程中，可能会遇到找不到alc.h, al.h, alut.h，这是因为你没有安装openal和freealut，通过以下命令来安装openal和freealut:  
+`dnf install openal-soft freealut -y`
+
+如果使用编译安装，还需要将devel包安装上:  
+`dnf install openal-soft-devel freealut-devel -y`
